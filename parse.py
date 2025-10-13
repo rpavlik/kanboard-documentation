@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+# Copyright 2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: MIT
 
 from pathlib import Path
-from pprint import pprint
 from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -17,11 +19,57 @@ class State(enum.Enum):
     IN_PARAM_LIST = 3
 
 
+_FILE_START = """
+# Copyright (c) 2014-2023 Frédéric Guillot
+# Copyright 2025, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+import asyncio
+from typing import Optional
+
+DEFAULT_AUTH_HEADER = "Authorization"
+
+class Client:
+    def __init__(
+        self,
+        url: str,
+        username: str,
+        password: str,
+        auth_header: str = DEFAULT_AUTH_HEADER,
+        cafile: Optional[str] = None,
+        insecure: bool = False,
+        ignore_hostname_verification: bool = False,
+        user_agent: str = "Kanboard Python API Client",
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+    ) -> None: ...
+
+"""
+
+
 class ExtractorStateMachine:
 
     def __init__(self) -> None:
         self.state = State.NORMAL
-        self.lines: list[str] = []
+        self.lines: list[str] = [_FILE_START]
         self.method: Optional[str] = None
         self.params: list[str] = []
         self.indent = "    "
@@ -185,7 +233,6 @@ if __name__ == "__main__":
         # methods.extend(_parse_file(md, fn))
 
     with open("stubs.pyi", "w", encoding="utf-8") as fp:
-        fp.write("class Client:\n")
         fp.write("\n".join(sm.lines))
         fp.write("\n")
     # print()
