@@ -102,10 +102,12 @@ class ExtractorStateMachine:
 
                 self.lines.extend(
                     [
-                        f"\n{self.indent}# {self.url}",
-                        f"{self.indent}def {self.method}(self, {args}): ...",
-                        f"\n{self.indent}# {self.url}",
-                        f"{self.indent}def {self.method}_async(self, {args}): ...",
+                        # f"\n{self.indent}# {self.url}",
+                        f"\n{self.indent}def {self.method}(self, {args}): ...",
+                        f'{self.indent}"""{self.url}"""',
+                        # f"\n{self.indent}# {self.url}",
+                        f"\n{self.indent}def {self.method}_async(self, {args}): ...",
+                        f'{self.indent}"""{self.url}"""',
                     ]
                 )
                 self.state = State.NORMAL
