@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: MIT
 
+import enum
 from pathlib import Path
 from typing import Optional
+
+import caseswitcher
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 from mdit_py_plugins.front_matter import front_matter_plugin
-import caseswitcher
-import enum
-
 
 _FILE_START = """
 # Copyright (c) 2014-2023 Frédéric Guillot
@@ -114,14 +114,17 @@ class ExtractorStateMachine:
         self.params.append(f"{param_name}: {param_type}{default}")
 
     def handle_token(self, stem: str, t: Token):
+        # State.NORMAL
         if self.state == State.NORMAL:
             if t.type == "heading_open":
                 self.state = State.IN_HEADING
                 return
+
             if t.content == "Parameters:":
                 self.state = State.EXPECT_PARAM_LIST
                 return
-            # self.method = None
+
+        # State.IN_HEADING
         elif self.state == State.IN_HEADING:
             if t.type == "heading_close":
                 self.state = State.NORMAL
@@ -131,16 +134,20 @@ class ExtractorStateMachine:
             anchor = t.content.lower()
             self.url = f"https://docs.kanboard.org/v1/api/{stem}/#{anchor}"
 
+        # State.EXPECT_PARAM_LIST
         elif self.state == State.EXPECT_PARAM_LIST:
             if t.type == "bullet_list_open":
                 self.state = State.IN_PARAM_LIST
                 self.params: list[str] = []
                 return
+
+        # State.IN_PARAM_LIST
         elif self.state == State.IN_PARAM_LIST:
             if t.type == "inline":
                 self._handle_param(t)
+
             elif t.type == "bullet_list_close":
-                # done with params
+                # done with params: let's accumulate the new call signature
                 args = ""
                 if self.params:
                     args = "*, " + ", ".join(self.params)
@@ -159,14 +166,12 @@ class ExtractorStateMachine:
                 self.state = State.NORMAL
 
     def handle_file_contents(self, md: MarkdownIt, stem: str, contents: str):
-
         tokens = md.parse(contents)
 
         for t in tokens:
             self.handle_token(stem, t)
 
     def inject_comment(self, comment_text):
-
         self.lines.append(f"\n{self.indent}# {comment_text}")
 
 
