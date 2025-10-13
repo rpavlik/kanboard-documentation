@@ -12,13 +12,6 @@ import caseswitcher
 import enum
 
 
-class State(enum.Enum):
-    NORMAL = 0
-    IN_HEADING = 1
-    EXPECT_PARAM_LIST = 2
-    IN_PARAM_LIST = 3
-
-
 _FILE_START = """
 # Copyright (c) 2014-2023 Frédéric Guillot
 # Copyright 2025, The Khronos Group Inc.
@@ -65,6 +58,13 @@ class Client:
 """
 
 
+class State(enum.Enum):
+    NORMAL = 0
+    IN_HEADING = 1
+    EXPECT_PARAM_LIST = 2
+    IN_PARAM_LIST = 3
+
+
 class ExtractorStateMachine:
 
     def __init__(self) -> None:
@@ -82,7 +82,7 @@ class ExtractorStateMachine:
         if t.content == "**none**":
             self.params = []
             return
-        text_nodes = [child.content for child in t.children if child.type == "text"]
+        text_nodes = [c.content for c in t.children if c.type == "text"]
 
         param_name = text_nodes[1]
         type_info = "".join(text_nodes[2:])
@@ -90,15 +90,12 @@ class ExtractorStateMachine:
         param_type = "Any"
         default = ""
 
-        # print(len(text_nodes))
         if "string" in type_info:
             param_type = "str"
         elif "integer" in type_info or "int," in type_info:
             param_type = "int"
         elif "boolean" in type_info:
             param_type = "bool"
-            # if "default is false" in type_info:
-            #     default = " = False"
         elif "dict" in type_info or "key/value" in type_info:
             param_type = "dict"
         elif "array" in type_info:
@@ -147,15 +144,16 @@ class ExtractorStateMachine:
                 args = ""
                 if self.params:
                     args = "*, " + ", ".join(self.params)
-
+                method = self.method
+                indent = self.indent
                 self.lines.extend(
                     [
-                        # f"\n{self.indent}# {self.url}",
-                        f"\n{self.indent}def {self.method}(self, {args}): ...",
-                        f'{self.indent}"""{self.url}"""',
-                        # f"\n{self.indent}# {self.url}",
-                        f"\n{self.indent}def {self.method}_async(self, {args}): ...",
-                        f'{self.indent}"""{self.url}"""',
+                        "",
+                        f"{indent}def {method}(self, {args}): ...",
+                        f'{indent}"""{self.url}"""',
+                        "",
+                        f"{indent}def {method}_async(self, {args}): ...",
+                        f'{indent}"""{self.url}"""',
                     ]
                 )
                 self.state = State.NORMAL
@@ -172,57 +170,13 @@ class ExtractorStateMachine:
         self.lines.append(f"\n{self.indent}# {comment_text}")
 
 
-# def _parse_file(md: MarkdownIt, fn):
-#     lines = []
-#     with open(fn, "r", encoding="utf-8") as fp:
-#         contents = fp.read()
-
-#     pprint(tokens)
-
-#     in_heading = False
-#     next_list_parameters = False
-#     for t in tokens:
-#         # # find first level headings
-#         # if t.level != 1:
-#         #
-
-#         if t.type == "heading_open":
-#             in_heading = True
-
-#         elif t.type == "heading_close":
-#             in_heading = False
-
-#         elif in_heading:
-
-#             # next_is_header = False
-#             # if not t.content:
-#             #     continue
-#             # if "example" in t.content:
-#             #     continue
-
-#             method = caseswitcher.to_snake(t.content)
-
-#             lines.extend(
-#                 [
-#                     f"  def {method}(self, **kwargs): ...",
-#                     f"  def {method}_async(self, **kwargs): ...",
-#                 ]
-#             )
-#         elif t.content == "Parameters:":
-
-#         # print("\n".join(lines))
-#     return lines
-
-
 if __name__ == "__main__":
 
     md = MarkdownIt("commonmark", {"breaks": True, "html": True}).use(
         front_matter_plugin
     )
-    # _parse_file(md, "content/en/v1/api/project_procedures.md")
 
     sm = ExtractorStateMachine()
-    # methods = []
     for fn in Path("content/en/v1/api/").glob("*_procedures.md"):
         section = fn.stem
         sm.inject_comment(section)
@@ -230,10 +184,7 @@ if __name__ == "__main__":
         with open(fn, "r", encoding="utf-8") as fp:
             contents = fp.read()
         sm.handle_file_contents(md, fn.stem, contents)
-        # methods.extend(_parse_file(md, fn))
 
     with open("stubs.pyi", "w", encoding="utf-8") as fp:
         fp.write("\n".join(sm.lines))
         fp.write("\n")
-    # print()
-    # print("\n".join(sm.lines))
