@@ -90,7 +90,9 @@ class ExtractorStateMachine:
         param_type = "Any"
         default = ""
 
-        if "string" in type_info:
+        if "[]string" in type_info:
+            param_type = "list[str]"
+        elif "string" in type_info:
             param_type = "str"
         elif "integer" in type_info or "int," in type_info:
             param_type = "int"
