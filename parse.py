@@ -159,7 +159,7 @@ class ExtractorStateMachine:
                         f"{indent}def {method}(self, {args}): ...",
                         f'{indent}"""{self.url}"""',
                         "",
-                        f"{indent}def {method}_async(self, {args}): ...",
+                        f"{indent}async def {method}_async(self, {args}): ...",
                         f'{indent}"""{self.url}"""',
                     ]
                 )
