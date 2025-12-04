@@ -3,13 +3,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-from dataclasses import dataclass
 import enum
-from pathlib import Path
-import pprint
-from typing import Optional
-from copy import deepcopy
 import json
+import pprint
+from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Optional
 
 import caseswitcher
 from markdown_it import MarkdownIt
@@ -120,11 +120,11 @@ def _combine_schemas(success_schema: dict, failure_schema: dict):
 
 def _guess_return_schema(desc: str):
     if desc == "true":
-        return {"enum": [True]}
+        return {"title": "True", "enum": [True]}
     if desc == "false":
-        return {"enum": [False]}
+        return {"title": "False", "enum": [False]}
     if desc == "null":
-        return {"enum": [None]}
+        return {"title": "Null", "enum": [None]}
     if desc.endswith("_id"):
         return {
             "title": desc,
@@ -133,10 +133,14 @@ def _guess_return_schema(desc: str):
 
     folded = desc.casefold()
     if desc == "[]" or folded == "empty array":
-        return {"type": "array", "additionalItems": False}
+        return {
+            "title": "Empty array",
+            "type": "array",
+            "additionalItems": False,
+        }
 
     if folded == "empty string":
-        return {"enum": [""]}
+        return {"title": "Empty string", "enum": [""]}
 
     if folded.startswith("list of"):
         # TODO recursively guess contents
@@ -182,9 +186,11 @@ class ExtractorStateMachine:
         self.url = ""
         self.orig_method: str
         self.openrpc = {
+            "$schema": "https://meta.open-rpc.org",
             "openrpc": "1.2.1",
             "info": {"version": "1.2", "title": "Kanboard"},
             "methods": [],
+            "components": {"tags": {}},
         }
 
         self.result = ""
@@ -246,7 +252,7 @@ class ExtractorStateMachine:
 
         self._handle_param_children(t.content, t.children)
 
-    def _finish_method(self):
+    def _finish_method(self, stem: str):
         args = ""
         if self.params:
             python_params = [param.to_python() for param in self.params]
@@ -263,19 +269,26 @@ class ExtractorStateMachine:
                 f'{indent}"""{self.url}"""',
             ]
         )
-        rpc_method = {
+        rpc_method: dict[str, Any] = {
             "name": self.orig_method,
-            "params": [param.to_jsonrpc() for param in self.params],
-            "result": {
-                # todo
-                "name": "retval",
-                "schema": {},
-            },
-            "externalDocs": {"url": self.url},
         }
         if self.purpose:
             rpc_method["summary"] = self.purpose
 
+        # Keeps summary above this, if present
+        rpc_method.update(
+            {
+                "externalDocs": {"url": self.url},
+                "tags": [{"$ref": f"#/components/tags/{stem}"}],
+                "params": [param.to_jsonrpc() for param in self.params],
+                "result": {
+                    "name": "retval",
+                    "schema": {
+                        # populated later
+                    },
+                },
+            }
+        )
         if self.result:
             rpc_method["result"]["schema"] = _guess_return_schema(self.result)
 
@@ -350,7 +363,7 @@ class ExtractorStateMachine:
             #         return
 
             if t.type == "bullet_list_close":
-                self._finish_method()
+                self._finish_method(stem)
 
         # State.IN_HEADING
         elif self.state == State.IN_HEADING:
@@ -381,6 +394,10 @@ class ExtractorStateMachine:
     def handle_file_contents(self, md: MarkdownIt, stem: str, contents: str):
         tokens = md.parse(contents)
 
+        self.openrpc["components"]["tags"][stem] = {
+            "name": stem,
+            "externalDocs": {"url": f"https://docs.kanboard.org/v1/api/{stem}"},
+        }
         for t in tokens:
             self.handle_token(stem, t)
 
