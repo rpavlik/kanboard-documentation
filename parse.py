@@ -5,6 +5,7 @@
 
 import enum
 from pathlib import Path
+import pprint
 from typing import Optional
 
 import caseswitcher
@@ -115,6 +116,25 @@ class ExtractorStateMachine:
 
         self.params.append(f"{param_name}: {param_type}{default}")
 
+    def _finish_method(self):
+        args = ""
+        if self.params:
+            args = "*, " + ", ".join(self.params)
+        method = self.method
+        indent = self.indent
+        self.lines.extend(
+            [
+                "",
+                f"{indent}def {method}(self, {args}): ...",
+                f'{indent}"""{self.url}"""',
+                "",
+                f"{indent}async def {method}_async(self, {args}): ...",
+                f'{indent}"""{self.url}"""',
+            ]
+        )
+        self.state = State.NORMAL
+        self.params: list[str] = []
+
     def handle_token(self, stem: str, t: Token):
         # State.NORMAL
         if self.state == State.NORMAL:
@@ -124,6 +144,10 @@ class ExtractorStateMachine:
 
             if t.content == "Parameters:":
                 self.state = State.EXPECT_PARAM_LIST
+                return
+
+            if t.content == "Parameters: none":
+                self._finish_method()
                 return
 
         # State.IN_HEADING
@@ -140,7 +164,6 @@ class ExtractorStateMachine:
         elif self.state == State.EXPECT_PARAM_LIST:
             if t.type == "bullet_list_open":
                 self.state = State.IN_PARAM_LIST
-                self.params: list[str] = []
                 return
 
         # State.IN_PARAM_LIST
@@ -150,22 +173,7 @@ class ExtractorStateMachine:
 
             elif t.type == "bullet_list_close":
                 # done with params: let's accumulate the new call signature
-                args = ""
-                if self.params:
-                    args = "*, " + ", ".join(self.params)
-                method = self.method
-                indent = self.indent
-                self.lines.extend(
-                    [
-                        "",
-                        f"{indent}def {method}(self, {args}): ...",
-                        f'{indent}"""{self.url}"""',
-                        "",
-                        f"{indent}async def {method}_async(self, {args}): ...",
-                        f'{indent}"""{self.url}"""',
-                    ]
-                )
-                self.state = State.NORMAL
+                self._finish_method()
 
     def handle_file_contents(self, md: MarkdownIt, stem: str, contents: str):
         tokens = md.parse(contents)
