@@ -79,9 +79,6 @@ class State(enum.Enum):
     EXPECT_PARAM_LIST = 2
     IN_PARAM_LIST = 3
     EXPECT_TITLE = 4
-    IN_RESULT_SUCCESS = 5
-    IN_RESULT_FAILURE = 6
-    IN_PURPOSE = 7
 
 
 @dataclass
@@ -380,33 +377,6 @@ class ExtractorStateMachine:
             elif t.type == "bullet_list_close":
                 # done with params
                 self.state = State.NORMAL
-
-        elif self.state == State.IN_RESULT_FAILURE:
-            if t.type == "text":
-                self.on_failure = t.content
-                print("failure", self.on_failure)
-                self.state = State.NORMAL
-                return
-            if t.type == "paragraph_close":
-                raise RuntimeError("Didn't find contents for failure")
-
-        elif self.state == State.IN_RESULT_SUCCESS:
-            if t.type == "text":
-                self.on_success = t.content
-                print("success", self.on_success)
-                self.state = State.NORMAL
-                return
-            if t.type == "paragraph_close":
-                raise RuntimeError("Didn't find contents for success")
-
-        elif self.state == State.IN_PURPOSE:
-            if t.type == "text":
-                self.purpose = t.content
-                print("purpose", self.purpose)
-                self.state = State.NORMAL
-                return
-            if t.type == "paragraph_close":
-                raise RuntimeError("Didn't find contents for purpose")
 
     def handle_file_contents(self, md: MarkdownIt, stem: str, contents: str):
         tokens = md.parse(contents)
